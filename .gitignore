@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+scans/
+
+# third-party reference document (not part of this project)
+RuntimeX_Project_Report*.pdf

@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sitescan report: 127.0.0.1</title>
+<style>
+:root {
+  --bg: #f7f7f4; --surface: #ffffff; --ink: #0b0b0b; --ink-2: #4a4a46; --ink-3: #75756f;
+  --line: #e1e0d9; --axis: #c3c2b7; --code-bg: #f1f0ea; --accent: #2a5db0;
+  --sev-Critical: #d03b3b; --sev-High: #ec835a; --sev-Medium: #fab219; --sev-Low: #7c95b8; --sev-Info: #b4b3ab;
+  --on-Critical: #fff; --on-High: #0b0b0b; --on-Medium: #0b0b0b; --on-Low: #0b0b0b; --on-Info: #0b0b0b;
+  --grade-good: #006300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121211; --surface: #1a1a19; --ink: #f2f2ee; --ink-2: #c4c4bd; --ink-3: #93938c;
+    --line: #2c2c2a; --axis: #383835; --code-bg: #232321; --accent: #7aa7ff;
+    --sev-Low: #8ea7c9; --sev-Info: #6c6b66; --on-Info: #f2f2ee; --grade-good: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121211; --surface: #1a1a19; --ink: #f2f2ee; --ink-2: #c4c4bd; --ink-3: #93938c;
+  --line: #2c2c2a; --axis: #383835; --code-bg: #232321; --accent: #7aa7ff;
+  --sev-Low: #8ea7c9; --sev-Info: #6c6b66; --on-Info: #f2f2ee; --grade-good: #0ca30c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+header.top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 17px; margin: 0 0 12px; }
+.muted { color: var(--ink-3); }
+.small { font-size: 13px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12.5px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+.grid { display: grid; gap: 16px; margin-top: 20px; grid-template-columns: 260px 1fr; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+/* hero */
+.hero { display: flex; flex-direction: column; justify-content: center; }
+.score { font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.score small { font-size: 18px; color: var(--ink-3); font-weight: 500; }
+.grade { display: inline-block; margin-top: 10px; font-size: 15px; font-weight: 700; padding: 2px 10px;
+  border-radius: 6px; border: 1.5px solid currentColor; }
+.grade-A, .grade-B { color: var(--grade-good); }
+.grade-C { color: var(--ink-2); }
+.grade-D, .grade-F { color: var(--sev-Critical); }
+
+/* severity bars (div-based, horizontal; label + count always in text ink) */
+.bars { display: grid; grid-template-columns: 72px 1fr 32px; gap: 8px 12px; align-items: center; }
+.bars .lbl { font-size: 13px; color: var(--ink-2); }
+.bars .val { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; }
+.track { height: 18px; border-left: 1px solid var(--axis); position: relative; }
+.bar { height: 100%; border-radius: 0 4px 4px 0; min-width: 0; transition: filter .12s; }
+.bar:hover { filter: brightness(1.08); }
+.bar.zero { width: 0 !important; }
+
+.summary-text p { margin: 0 0 10px; }
+ul.top { margin: 8px 0 0; padding-left: 0; list-style: none; }
+ul.top li { margin: 2px 0; }
+table.plain { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.plain td, table.plain th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.plain th { color: var(--ink-3); font-weight: 600; }
+table.plain td.n { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* filters */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 28px 0 12px; align-items: center; }
+.chip { cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.chip[aria-pressed="false"] { opacity: .45; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* finding cards */
+.finding { margin-bottom: 12px; border-left: 4px solid var(--sev, var(--line)); }
+.finding header { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.finding h3 { font-size: 15px; margin: 0; flex: 1 1 320px; }
+.badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 4px; white-space: nowrap; }
+.meta { display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 8px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.meta b { color: var(--ink-3); font-weight: 500; }
+pre.evidence { background: var(--code-bg); padding: 10px 12px; border-radius: 6px; white-space: pre-wrap;
+  word-break: break-word; margin: 10px 0; max-height: 260px; overflow: auto; }
+.remediation { margin: 0; color: var(--ink-2); font-size: 14px; }
+.hidden { display: none; }
+a { color: var(--accent); }
+footer { margin-top: 40px; font-size: 12px; color: var(--ink-3); }
+@media print { .filters { display: none; } .finding { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Security posture: 127.0.0.1</h1>
+    <span class="muted small">2026-11-04 09:41 UTC · sitescan 0.1.0</span>
+  </header>
+  <p class="muted small" style="margin:4px 0 0">https://127.0.0.1:57672/ · 66 requests · 3.2s · passive, non-destructive assessment</p>
+
+  <section class="grid">
+    <div class="card hero" aria-label="Posture score">
+      <div class="muted small">Posture score</div>
+      <div class="score">0<small>/100</small></div>
+      <div><span class="grade grade-F">Grade F</span></div>
+      <div class="muted small" style="margin-top:12px">42 actionable findings, 7 informational</div>
+    </div>
+
+    <div class="card">
+      <h2>Severity breakdown</h2>
+      <div class="bars" role="table" aria-label="Findings by severity">
+        <span class="lbl" role="rowheader">Critical</span>
+        <div class="track" role="cell">
+          <div class="bar" title="Critical: 2 findings"
+               style="width: 11.1%; background: var(--sev-Critical)"></div>
+        </div>
+        <span class="val" role="cell">2</span>
+        <span class="lbl" role="rowheader">High</span>
+        <div class="track" role="cell">
+          <div class="bar" title="High: 6 findings"
+               style="width: 33.3%; background: var(--sev-High)"></div>
+        </div>
+        <span class="val" role="cell">6</span>
+        <span class="lbl" role="rowheader">Medium</span>
+        <div class="track" role="cell">
+          <div class="bar" title="Medium: 18 findings"
+               style="width: 100.0%; background: var(--sev-Medium)"></div>
+        </div>
+        <span class="val" role="cell">18</span>
+        <span class="lbl" role="rowheader">Low</span>
+        <div class="track" role="cell">
+          <div class="bar" title="Low: 16 findings"
+               style="width: 88.9%; background: var(--sev-Low)"></div>
+        </div>
+        <span class="val" role="cell">16</span>
+        <span class="lbl" role="rowheader">Info</span>
+        <div class="track" role="cell">
+          <div class="bar" title="Info: 7 findings"
+               style="width: 38.9%; background: var(--sev-Info)"></div>
+        </div>
+        <span class="val" role="cell">7</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid" style="grid-template-columns: 1fr 1fr">
+    <div class="card summary-text">
+      <h2>Executive summary</h2>
+      <p>
+        <strong>127.0.0.1</strong> has <strong>2 critical</strong> and
+        <strong>6 high</strong> severity issues that should be fixed before anything else.
+        The overall posture score is <strong>0/100 (grade F)</strong>.
+      </p>
+      <div class="muted small">Top priorities</div>
+      <ul class="top">
+<li><span class="dot" style="background:var(--sev-Critical)"></span> Sensitive path publicly accessible: /backup.sql <span class="muted small">(Critical)</span></li><li><span class="dot" style="background:var(--sev-Critical)"></span> Sensitive path publicly accessible: /.env <span class="muted small">(Critical)</span></li><li><span class="dot" style="background:var(--sev-High)"></span> AngularJS 1.5.8 has 1 known vulnerability <span class="muted small">(High)</span></li><li><span class="dot" style="background:var(--sev-High)"></span> Sensitive path publicly accessible: /.git/config <span class="muted small">(High)</span></li><li><span class="dot" style="background:var(--sev-High)"></span> Certificate does not cover the target hostname <span class="muted small">(High)</span></li>      </ul>
+    </div>
+    <div class="card">
+      <h2>Findings by OWASP Top 10 (2021)</h2>
+      <table class="plain">
+        <tr><th>Category</th><th style="text-align:right">Findings</th></tr>
+<tr><td>A01:2021-Broken Access Control</td><td class="n">4</td></tr><tr><td>A02:2021-Cryptographic Failures</td><td class="n">15</td></tr><tr><td>A05:2021-Security Misconfiguration</td><td class="n">19</td></tr><tr><td>A06:2021-Vulnerable and Outdated Components</td><td class="n">3</td></tr><tr><td>A09:2021-Security Logging and Monitoring Failures</td><td class="n">1</td></tr>      </table>
+    </div>
+  </section>
+
+  <div class="filters" role="group" aria-label="Filter findings by severity">
+    <strong style="margin-right:4px">Findings (49)</strong>
+    <button class="chip" type="button" aria-pressed="true" data-sev="Critical">
+      <span class="dot" style="background:var(--sev-Critical)"></span>Critical · 2
+    </button>
+    <button class="chip" type="button" aria-pressed="true" data-sev="High">
+      <span class="dot" style="background:var(--sev-High)"></span>High · 6
+    </button>
+    <button class="chip" type="button" aria-pressed="true" data-sev="Medium">
+      <span class="dot" style="background:var(--sev-Medium)"></span>Medium · 18
+    </button>
+    <button class="chip" type="button" aria-pressed="true" data-sev="Low">
+      <span class="dot" style="background:var(--sev-Low)"></span>Low · 16
+    </button>
+    <button class="chip" type="button" aria-pressed="true" data-sev="Info">
+      <span class="dot" style="background:var(--sev-Info)"></span>Info · 7
+    </button>
+  </div>
+
+  <article class="card finding" data-sev="Critical" style="--sev: var(--sev-Critical)">
+    <header>
+      <span class="badge" style="background:var(--sev-Critical);color:var(--on-Critical)">Critical</span>
+      <h3>Sensitive path publicly accessible: /backup.sql</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>paths.exposed.backup.sql</code></span>
+      <span><b>Scanner</b> sensitive-paths</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/530.html" rel="noopener noreferrer">CWE-530</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N</code> (9.1)</span>    </div>
+    <pre class="evidence">HEAD https://127.0.0.1:57672/backup.sql -&gt; 200 (Content-Type: application/octet-stream, Content-Length: 24); database dump. Content NOT downloaded.</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove /backup.sql from the web root or deny access at the web server (e.g. nginx `location ~ /\. { deny all; }`). If it held secrets, assume they are compromised and rotate them.</p>
+  </article>
+  <article class="card finding" data-sev="Critical" style="--sev: var(--sev-Critical)">
+    <header>
+      <span class="badge" style="background:var(--sev-Critical);color:var(--on-Critical)">Critical</span>
+      <h3>Sensitive path publicly accessible: /.env</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>paths.exposed.env</code></span>
+      <span><b>Scanner</b> sensitive-paths</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/538.html" rel="noopener noreferrer">CWE-538</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N</code> (9.1)</span>    </div>
+    <pre class="evidence">HEAD https://127.0.0.1:57672/.env -&gt; 200 (Content-Type: application/octet-stream, Content-Length: 24); environment file (typically DB passwords, API keys). Content NOT downloaded.</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove /.env from the web root or deny access at the web server (e.g. nginx `location ~ /\. { deny all; }`). If it held secrets, assume they are compromised and rotate them.</p>
+  </article>
+  <article class="card finding" data-sev="High" style="--sev: var(--sev-High)">
+    <header>
+      <span class="badge" style="background:var(--sev-High);color:var(--on-High)">High</span>
+      <h3>AngularJS 1.5.8 has 1 known vulnerability</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>deps.angular.vulnerable</code></span>
+      <span><b>Scanner</b> dependencies</span>
+<span><b>OWASP</b> A06:2021-Vulnerable and Outdated Components</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1104.html" rel="noopener noreferrer">CWE-1104</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H</code> (9.8)</span>    </div>
+    <pre class="evidence">AngularJS 1.5.8 at https://127.0.0.1:57672/static/js/app.js. GHSA-5cp4-xmrw-59wf (CVE-2019-10768) [High 9.8]: XSS via JSONP / prototype pollution in AngularJS</pre>
+    <p class="remediation"><strong>Remediation:</strong> Upgrade AngularJS to the latest release (check each advisory&#39;s fixed version on https://osv.dev/list?ecosystem=npm&amp;q=angular) and remove unused copies. Consider Subresource Integrity for CDN-hosted files.</p>
+    <p class="small" style="margin:8px 0 0"><a href="https://osv.dev/vulnerability/GHSA-5cp4-xmrw-59wf" rel="noopener noreferrer">https://osv.dev/vulnerability/GHSA-5cp4-xmrw-59wf</a></p>
+  </article>
+  <article class="card finding" data-sev="High" style="--sev: var(--sev-High)">
+    <header>
+      <span class="badge" style="background:var(--sev-High);color:var(--on-High)">High</span>
+      <h3>Sensitive path publicly accessible: /.git/config</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>paths.exposed.git.config</code></span>
+      <span><b>Scanner</b> sensitive-paths</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/527.html" rel="noopener noreferrer">CWE-527</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N</code> (7.5)</span>    </div>
+    <pre class="evidence">HEAD https://127.0.0.1:57672/.git/config -&gt; 200 (Content-Type: application/octet-stream, Content-Length: 24); Git repository metadata (full source code may be recoverable). Content NOT downloaded.</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove /.git/config from the web root or deny access at the web server (e.g. nginx `location ~ /\. { deny all; }`). If it held secrets, assume they are compromised and rotate them.</p>
+  </article>
+  <article class="card finding" data-sev="High" style="--sev: var(--sev-High)">
+    <header>
+      <span class="badge" style="background:var(--sev-High);color:var(--on-High)">High</span>
+      <h3>Certificate does not cover the target hostname</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.cert.name-mismatch</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/297.html" rel="noopener noreferrer">CWE-297</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N</code> (7.4)</span>    </div>
+    <pre class="evidence">host=127.0.0.1 SANs=[&#39;legacy.internal&#39;] subject=CN=legacy.internal</pre>
+    <p class="remediation"><strong>Remediation:</strong> Reissue the certificate with the hostname in the subjectAltName extension.</p>
+  </article>
+  <article class="card finding" data-sev="High" style="--sev: var(--sev-High)">
+    <header>
+      <span class="badge" style="background:var(--sev-High);color:var(--on-High)">High</span>
+      <h3>TLS certificate is self-signed</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.cert.self-signed</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/295.html" rel="noopener noreferrer">CWE-295</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N</code> (7.4)</span>    </div>
+    <pre class="evidence">issuer == subject == CN=legacy.internal</pre>
+    <p class="remediation"><strong>Remediation:</strong> Use a certificate issued by a publicly trusted CA so clients can authenticate the server.</p>
+  </article>
+  <article class="card finding" data-sev="High" style="--sev: var(--sev-High)">
+    <header>
+      <span class="badge" style="background:var(--sev-High);color:var(--on-High)">High</span>
+      <h3>Certificate uses a weak public key</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.cert.weak-key</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/326.html" rel="noopener noreferrer">CWE-326</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N</code> (7.4)</span>    </div>
+    <pre class="evidence">RSA 1024-bit</pre>
+    <p class="remediation"><strong>Remediation:</strong> Reissue with RSA &gt;= 2048 bits (3072 recommended) or ECDSA P-256 or stronger.</p>
+  </article>
+  <article class="card finding" data-sev="High" style="--sev: var(--sev-High)">
+    <header>
+      <span class="badge" style="background:var(--sev-High);color:var(--on-High)">High</span>
+      <h3>Server accepts anonymous cipher suites</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.cipher.anonymous</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/327.html" rel="noopener noreferrer">CWE-327</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N</code> (7.4)</span>    </div>
+    <pre class="evidence">negotiated AECDH-AES256-SHA over TLSv1.2 (no server authentication (trivial MITM))</pre>
+    <p class="remediation"><strong>Remediation:</strong> Restrict the cipher list to AEAD suites with ECDHE key exchange, e.g. Mozilla&#39;s &#39;intermediate&#39; profile (ECDHE+AESGCM, ECDHE+CHACHA20).</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Cookie &#39;PHPSESSID&#39; lacks the HttpOnly flag</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>cookies.missing-httponly</code></span>
+      <span><b>Scanner</b> cookies</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1004.html" rel="noopener noreferrer">CWE-1004</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">Set-Cookie: PHPSESSID=&lt;redacted&gt;; Path=/</pre>
+    <p class="remediation"><strong>Remediation:</strong> Add `HttpOnly` so JavaScript (and therefore XSS payloads) cannot read the cookie. Only omit it for cookies the front-end genuinely needs to read.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Cookie &#39;PHPSESSID&#39; lacks the Secure flag</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>cookies.missing-secure</code></span>
+      <span><b>Scanner</b> cookies</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/614.html" rel="noopener noreferrer">CWE-614</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">Set-Cookie: PHPSESSID=&lt;redacted&gt;; Path=/</pre>
+    <p class="remediation"><strong>Remediation:</strong> Add `Secure` so the cookie is never sent over plain HTTP. For session cookies, prefer the `__Host-` prefix (requires Secure, Path=/, no Domain).</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Cookie &#39;tracking&#39; lacks the Secure flag</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>cookies.missing-secure</code></span>
+      <span><b>Scanner</b> cookies</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/614.html" rel="noopener noreferrer">CWE-614</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">Set-Cookie: tracking=&lt;redacted&gt;; Path=/; SameSite=None</pre>
+    <p class="remediation"><strong>Remediation:</strong> Add `Secure` so the cookie is never sent over plain HTTP. For session cookies, prefer the `__Host-` prefix (requires Secure, Path=/, no Domain).</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Cookie &#39;tracking&#39; uses SameSite=None without Secure</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>cookies.samesite-none-insecure</code></span>
+      <span><b>Scanner</b> cookies</span>
+<span><b>OWASP</b> A01:2021-Broken Access Control</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1275.html" rel="noopener noreferrer">CWE-1275</a></span>    </div>
+    <pre class="evidence">Set-Cookie: tracking=&lt;redacted&gt;; Path=/; SameSite=None</pre>
+    <p class="remediation"><strong>Remediation:</strong> SameSite=None requires Secure; modern browsers reject the cookie otherwise.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Bootstrap 3.3.7 has 1 known vulnerability</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>deps.bootstrap.vulnerable</code></span>
+      <span><b>Scanner</b> dependencies</span>
+<span><b>OWASP</b> A06:2021-Vulnerable and Outdated Components</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1104.html" rel="noopener noreferrer">CWE-1104</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N</code> (6.1)</span>    </div>
+    <pre class="evidence">Bootstrap 3.3.7 at https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css. GHSA-4p24-vmcr-4gqj (CVE-2018-14042) [Medium 6.1]: XSS in data-container property of tooltip</pre>
+    <p class="remediation"><strong>Remediation:</strong> Upgrade Bootstrap to the latest release (check each advisory&#39;s fixed version on https://osv.dev/list?ecosystem=npm&amp;q=bootstrap) and remove unused copies. Consider Subresource Integrity for CDN-hosted files.</p>
+    <p class="small" style="margin:8px 0 0"><a href="https://osv.dev/vulnerability/GHSA-4p24-vmcr-4gqj" rel="noopener noreferrer">https://osv.dev/vulnerability/GHSA-4p24-vmcr-4gqj</a></p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>jQuery 1.12.4 has 2 known vulnerabilities</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>deps.jquery.vulnerable</code></span>
+      <span><b>Scanner</b> dependencies</span>
+<span><b>OWASP</b> A06:2021-Vulnerable and Outdated Components</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1104.html" rel="noopener noreferrer">CWE-1104</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N</code> (6.1)</span>    </div>
+    <pre class="evidence">jQuery 1.12.4 at https://127.0.0.1:57672/static/js/jquery-1.12.4.min.js. GHSA-6c3j-c64m-qhgq (CVE-2019-11358) [Medium 6.1]: XSS in jQuery as used in Drupal, Backdrop CMS, and other products | GHSA-gxr4-xjj5-5px2 (CVE-2020-11022) [Medium 4.7]: Potential XSS vulnerability in jQuery</pre>
+    <p class="remediation"><strong>Remediation:</strong> Upgrade jQuery to the latest release (check each advisory&#39;s fixed version on https://osv.dev/list?ecosystem=npm&amp;q=jquery) and remove unused copies. Consider Subresource Integrity for CDN-hosted files.</p>
+    <p class="small" style="margin:8px 0 0"><a href="https://osv.dev/vulnerability/GHSA-6c3j-c64m-qhgq" rel="noopener noreferrer">https://osv.dev/vulnerability/GHSA-6c3j-c64m-qhgq</a> · <a href="https://osv.dev/vulnerability/GHSA-gxr4-xjj5-5px2" rel="noopener noreferrer">https://osv.dev/vulnerability/GHSA-gxr4-xjj5-5px2</a></p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Directory listing enabled at /uploads/</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>disclosure.directory-listing</code></span>
+      <span><b>Scanner</b> disclosure</span>
+<span><b>OWASP</b> A01:2021-Broken Access Control</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/548.html" rel="noopener noreferrer">CWE-548</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">GET https://127.0.0.1:57672/uploads/ -&gt; 200, body contains an auto-generated index</pre>
+    <p class="remediation"><strong>Remediation:</strong> Disable automatic indexes (nginx `autoindex off;`, Apache `Options -Indexes`, IIS directoryBrowse enabled=false).</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Error pages expose debug information / stack traces</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>disclosure.verbose-errors</code></span>
+      <span><b>Scanner</b> disclosure</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/209.html" rel="noopener noreferrer">CWE-209</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">GET https://127.0.0.1:57672/sitescan-probe-f55282cb696c -&gt; 404; signatures: Python traceback, Debug mode flag; snippet: html&gt;&lt;body&gt;&lt;h1&gt;Internal error&lt;/h1&gt;&lt;pre&gt; Traceback (most recent call last): File &#34;/srv/app/views.py&#34;, line 42, in dispatch return handlers[path]() K</pre>
+    <p class="remediation"><strong>Remediation:</strong> Disable debug mode in production and serve generic error pages; log the details server-side instead. Stack traces reveal paths, frameworks and code structure.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>CSP allows &#39;unsafe-eval&#39; (script-src)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.csp.unsafe-eval</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/95.html" rel="noopener noreferrer">CWE-95</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:L/A:N</code> (4.7)</span>    </div>
+    <pre class="evidence">script-src &#39;self&#39; &#39;unsafe-inline&#39; &#39;unsafe-eval&#39; https:</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove &#39;unsafe-eval&#39;. Refactor code that uses eval(), new Function(), or string arguments to setTimeout/setInterval.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>CSP allows &#39;unsafe-inline&#39; scripts (script-src)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.csp.unsafe-inline</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/79.html" rel="noopener noreferrer">CWE-79</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:L/A:N</code> (4.7)</span>    </div>
+    <pre class="evidence">script-src &#39;self&#39; &#39;unsafe-inline&#39; &#39;unsafe-eval&#39; https:</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove &#39;unsafe-inline&#39; from script sources. Move inline scripts to external files, or authorise them with per-response nonces or hashes (browsers that support nonces ignore &#39;unsafe-inline&#39; when one is present).</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>CSP script sources include wildcard/scheme sources (script-src)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.csp.wildcard-source</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/693.html" rel="noopener noreferrer">CWE-693</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:L/A:N</code> (4.7)</span>    </div>
+    <pre class="evidence">script-src &#39;self&#39; &#39;unsafe-inline&#39; &#39;unsafe-eval&#39; https:  (wildcards: https:)</pre>
+    <p class="remediation"><strong>Remediation:</strong> Replace wildcard and bare-scheme sources (`*`, `https:`, `data:`) with an explicit allow-list of origins, or adopt a nonce + &#39;strict-dynamic&#39; policy.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>No clickjacking protection (X-Frame-Options / frame-ancestors)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.xfo.missing</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1021.html" rel="noopener noreferrer">CWE-1021</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N</code> (4.3)</span>    </div>
+    <pre class="evidence">neither X-Frame-Options nor CSP frame-ancestors present</pre>
+    <p class="remediation"><strong>Remediation:</strong> Send `Content-Security-Policy: frame-ancestors &#39;self&#39;` (preferred) and/or `X-Frame-Options: DENY` / `SAMEORIGIN`.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Sensitive path publicly accessible: /phpinfo.php</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>paths.exposed.phpinfo.php</code></span>
+      <span><b>Scanner</b> sensitive-paths</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/200.html" rel="noopener noreferrer">CWE-200</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">HEAD https://127.0.0.1:57672/phpinfo.php -&gt; 200 (Content-Type: application/octet-stream, Content-Length: 24); phpinfo() page (full environment disclosure). Content NOT downloaded.</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove /phpinfo.php from the web root or deny access at the web server (e.g. nginx `location ~ /\. { deny all; }`). If it held secrets, assume they are compromised and rotate them.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>TLS certificate expires in 4 days</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.cert.expiring-soon</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/298.html" rel="noopener noreferrer">CWE-298</a></span>    </div>
+    <pre class="evidence">notAfter=2026-11-09T09:41:41+00:00 (4 days left)</pre>
+    <p class="remediation"><strong>Remediation:</strong> Renew now and put certificate expiry under automated renewal + monitoring.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Deprecated protocol TLSv1.0 is enabled</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.protocol.tls10</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/327.html" rel="noopener noreferrer">CWE-327</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N</code> (4.2)</span>    </div>
+    <pre class="evidence">handshake succeeded with TLSv1.0, cipher ECDHE-RSA-AES256-SHA</pre>
+    <p class="remediation"><strong>Remediation:</strong> Disable TLS 1.0 and 1.1 (deprecated by RFC 8996); support only TLS 1.2 and 1.3.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Deprecated protocol TLSv1.1 is enabled</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.protocol.tls11</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/327.html" rel="noopener noreferrer">CWE-327</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N</code> (4.2)</span>    </div>
+    <pre class="evidence">handshake succeeded with TLSv1.1, cipher ECDHE-RSA-AES256-SHA</pre>
+    <p class="remediation"><strong>Remediation:</strong> Disable TLS 1.0 and 1.1 (deprecated by RFC 8996); support only TLS 1.2 and 1.3.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>Active mixed content: 4 HTTP resource(s) on HTTPS page</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>transport.mixed-content.active</code></span>
+      <span><b>Scanner</b> transport</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/319.html" rel="noopener noreferrer">CWE-319</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N</code> (7.4)</span>    </div>
+    <pre class="evidence">&lt;link&gt; http://cdn.legacy.test/theme.css; &lt;script&gt; http://cdn.legacy.test/analytics.js; &lt;iframe&gt; http://widgets.legacy.test/chat; &lt;form&gt; http://legacy.test/login</pre>
+    <p class="remediation"><strong>Remediation:</strong> Load every script, stylesheet, frame and form target over HTTPS. As a safety net add `Content-Security-Policy: upgrade-insecure-requests`.</p>
+  </article>
+  <article class="card finding" data-sev="Medium" style="--sev: var(--sev-Medium)">
+    <header>
+      <span class="badge" style="background:var(--sev-Medium);color:var(--on-Medium)">Medium</span>
+      <h3>HTTP does not redirect to HTTPS</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>transport.no-https-redirect</code></span>
+      <span><b>Scanner</b> transport</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/319.html" rel="noopener noreferrer">CWE-319</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N</code> (4.2)</span>    </div>
+    <pre class="evidence">http://127.0.0.1:57673/: HTTP 200 served without redirect</pre>
+    <p class="remediation"><strong>Remediation:</strong> Answer every plain-HTTP request with a 301 to the same host over https://. Redirecting to a different host first breaks HSTS preload eligibility.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Cookie &#39;tracking&#39; lacks the HttpOnly flag</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>cookies.missing-httponly</code></span>
+      <span><b>Scanner</b> cookies</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1004.html" rel="noopener noreferrer">CWE-1004</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">Set-Cookie: tracking=&lt;redacted&gt;; Path=/; SameSite=None</pre>
+    <p class="remediation"><strong>Remediation:</strong> Add `HttpOnly` so JavaScript (and therefore XSS payloads) cannot read the cookie. Only omit it for cookies the front-end genuinely needs to read.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Cookie &#39;PHPSESSID&#39; has no SameSite attribute</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>cookies.missing-samesite</code></span>
+      <span><b>Scanner</b> cookies</span>
+<span><b>OWASP</b> A01:2021-Broken Access Control</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1275.html" rel="noopener noreferrer">CWE-1275</a></span>    </div>
+    <pre class="evidence">Set-Cookie: PHPSESSID=&lt;redacted&gt;; Path=/</pre>
+    <p class="remediation"><strong>Remediation:</strong> Set `SameSite=Lax` (or `Strict` for session cookies that never need cross-site navigation). Relying on browser defaults is inconsistent across clients.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Server header discloses software/version</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>disclosure.banner.server</code></span>
+      <span><b>Scanner</b> disclosure</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/200.html" rel="noopener noreferrer">CWE-200</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">Server: Apache/2.4.29 (Ubuntu)</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove or genericise the Server header (e.g. nginx `server_tokens off;`, Apache `ServerTokens Prod` + `ServerSignature Off`, PHP `expose_php = Off`). Version strings let attackers map you to known CVEs instantly.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>X-Powered-By header discloses software/version</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>disclosure.banner.x-powered-by</code></span>
+      <span><b>Scanner</b> disclosure</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/200.html" rel="noopener noreferrer">CWE-200</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">X-Powered-By: PHP/7.2.3</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove or genericise the X-Powered-By header (e.g. nginx `server_tokens off;`, Apache `ServerTokens Prod` + `ServerSignature Off`, PHP `expose_php = Off`). Version strings let attackers map you to known CVEs instantly.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>CSP missing base-uri directive</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.csp.base-uri</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/693.html" rel="noopener noreferrer">CWE-693</a></span>    </div>
+    <pre class="evidence">Content-Security-Policy: default-src *; script-src &#39;self&#39; &#39;unsafe-inline&#39; &#39;unsafe-eval&#39; https:</pre>
+    <p class="remediation"><strong>Remediation:</strong> Add `base-uri &#39;self&#39;` (or &#39;none&#39;). base-uri does not fall back to default-src, so an injected &lt;base&gt; tag can redirect relative script URLs.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>CSP does not lock down plugin content (object-src)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.csp.object-src</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/693.html" rel="noopener noreferrer">CWE-693</a></span>    </div>
+    <pre class="evidence">effective object-src: *</pre>
+    <p class="remediation"><strong>Remediation:</strong> Add `object-src &#39;none&#39;` to block legacy plugin-based script execution.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>HSTS max-age is shorter than 6 months</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.hsts.short-max-age</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/319.html" rel="noopener noreferrer">CWE-319</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N</code> (4.2)</span>    </div>
+    <pre class="evidence">Strict-Transport-Security: max-age=600</pre>
+    <p class="remediation"><strong>Remediation:</strong> Raise max-age to at least 31536000 (1 year) once HTTPS is stable.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Permissions-Policy header missing</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.permissions-policy.missing</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/693.html" rel="noopener noreferrer">CWE-693</a></span>    </div>
+    <pre class="evidence">header absent</pre>
+    <p class="remediation"><strong>Remediation:</strong> Disable powerful features you don&#39;t use, e.g. `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Referrer-Policy leaks full URLs cross-origin</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.referrer-policy.unsafe</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/200.html" rel="noopener noreferrer">CWE-200</a></span>    </div>
+    <pre class="evidence">Referrer-Policy: unsafe-url</pre>
+    <p class="remediation"><strong>Remediation:</strong> Use `strict-origin-when-cross-origin`, `same-origin` or `no-referrer`; `unsafe-url` sends paths and query strings (which may hold tokens) to third parties.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>X-Content-Type-Options: nosniff not set</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>headers.xcto.missing</code></span>
+      <span><b>Scanner</b> headers</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/693.html" rel="noopener noreferrer">CWE-693</a></span>    </div>
+    <pre class="evidence">header absent</pre>
+    <p class="remediation"><strong>Remediation:</strong> Send `X-Content-Type-Options: nosniff` to stop MIME-type sniffing.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Sensitive path publicly accessible: /.DS_Store</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>paths.exposed.DS_Store</code></span>
+      <span><b>Scanner</b> sensitive-paths</span>
+<span><b>OWASP</b> A05:2021-Security Misconfiguration</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/538.html" rel="noopener noreferrer">CWE-538</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</code> (5.3)</span>    </div>
+    <pre class="evidence">HEAD https://127.0.0.1:57672/.DS_Store -&gt; 200 (Content-Type: application/octet-stream, Content-Length: 24); macOS folder metadata (leaks file names). Content NOT downloaded.</pre>
+    <p class="remediation"><strong>Remediation:</strong> Remove /.DS_Store from the web root or deny access at the web server (e.g. nginx `location ~ /\. { deny all; }`). If it held secrets, assume they are compromised and rotate them.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Server accepts static-RSA cipher suites</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.cipher.static-rsa</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/327.html" rel="noopener noreferrer">CWE-327</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N</code> (4.2)</span>    </div>
+    <pre class="evidence">negotiated AES256-GCM-SHA384 over TLSv1.2 (no forward secrecy (RSA key exchange))</pre>
+    <p class="remediation"><strong>Remediation:</strong> Restrict the cipher list to AEAD suites with ECDHE key exchange, e.g. Mozilla&#39;s &#39;intermediate&#39; profile (ECDHE+AESGCM, ECDHE+CHACHA20).</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>TLS 1.3 is not supported</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.protocol.no-tls13</code></span>
+      <span><b>Scanner</b> tls</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/327.html" rel="noopener noreferrer">CWE-327</a></span>    </div>
+    <pre class="evidence">offered: TLSv1.0, TLSv1.1, TLSv1.2</pre>
+    <p class="remediation"><strong>Remediation:</strong> Enable TLS 1.3 for faster handshakes and removal of legacy cipher constructions.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>Passive mixed content: 1 HTTP media resource(s)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>transport.mixed-content.passive</code></span>
+      <span><b>Scanner</b> transport</span>
+<span><b>OWASP</b> A02:2021-Cryptographic Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/319.html" rel="noopener noreferrer">CWE-319</a></span><span><b>CVSS</b> <code>CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N</code> (4.2)</span>    </div>
+    <pre class="evidence">&lt;img&gt; http://cdn.legacy.test/logo.png</pre>
+    <p class="remediation"><strong>Remediation:</strong> Serve images/media over HTTPS or use protocol-relative/HTTPS URLs.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>robots.txt advertises potentially sensitive paths</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>wellknown.robots.sensitive-paths</code></span>
+      <span><b>Scanner</b> wellknown</span>
+<span><b>OWASP</b> A01:2021-Broken Access Control</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/200.html" rel="noopener noreferrer">CWE-200</a></span>    </div>
+    <pre class="evidence">Disallow: /admin/, /backup/, /internal-api/</pre>
+    <p class="remediation"><strong>Remediation:</strong> robots.txt is public and is a roadmap for attackers. Protect sensitive areas with authentication instead of hiding them, and drop them from robots.txt.</p>
+  </article>
+  <article class="card finding" data-sev="Low" style="--sev: var(--sev-Low)">
+    <header>
+      <span class="badge" style="background:var(--sev-Low);color:var(--on-Low)">Low</span>
+      <h3>No security.txt (RFC 9116)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>wellknown.security-txt.missing</code></span>
+      <span><b>Scanner</b> wellknown</span>
+<span><b>OWASP</b> A09:2021-Security Logging and Monitoring Failures</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/1059.html" rel="noopener noreferrer">CWE-1059</a></span>    </div>
+    <pre class="evidence">https://127.0.0.1:57672/.well-known/security.txt -&gt; 404</pre>
+    <p class="remediation"><strong>Remediation:</strong> Publish /.well-known/security.txt with `Contact:` and `Expires:` so researchers can report vulnerabilities to you (generator: https://securitytxt.org).</p>
+  </article>
+  <article class="card finding" data-sev="Info" style="--sev: var(--sev-Info)">
+    <header>
+      <span class="badge" style="background:var(--sev-Info);color:var(--on-Info)">Info</span>
+      <h3>DNS/email checks skipped (IP or local target)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>dns.skipped</code></span>
+      <span><b>Scanner</b> dns-email</span>
+    </div>
+    <pre class="evidence">127.0.0.1</pre>
+    <p class="remediation"><strong>Remediation:</strong> Pass --dns-domain &lt;domain&gt; to assess the domain&#39;s DNS records.</p>
+  </article>
+  <article class="card finding" data-sev="Info" style="--sev: var(--sev-Info)">
+    <header>
+      <span class="badge" style="background:var(--sev-Info);color:var(--on-Info)">Info</span>
+      <h3>Admin interface present (access-controlled): /admin</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>paths.protected.admin</code></span>
+      <span><b>Scanner</b> sensitive-paths</span>
+<span><b>OWASP</b> A01:2021-Broken Access Control</span><span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/284.html" rel="noopener noreferrer">CWE-284</a></span>    </div>
+    <pre class="evidence">HEAD https://127.0.0.1:57672/admin -&gt; 401 WWW-Authenticate: Basic realm=&#34;admin&#34;</pre>
+    <p class="remediation"><strong>Remediation:</strong> Consider restricting admin interfaces to trusted networks in addition to authentication.</p>
+  </article>
+  <article class="card finding" data-sev="Info" style="--sev: var(--sev-Info)">
+    <header>
+      <span class="badge" style="background:var(--sev-Info);color:var(--on-Info)">Info</span>
+      <h3>Probed 35 well-known paths with HEAD</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>paths.summary</code></span>
+      <span><b>Scanner</b> sensitive-paths</span>
+    </div>
+    <pre class="evidence">non-404 responses: /.git/config=200, /.env=200, /backup.sql=200, /phpinfo.php=200, /.DS_Store=200, /admin=401</pre>
+    <p class="remediation"><strong>Remediation:</strong> Informational: full status map of the path probe.</p>
+  </article>
+  <article class="card finding" data-sev="Info" style="--sev: var(--sev-Info)">
+    <header>
+      <span class="badge" style="background:var(--sev-Info);color:var(--on-Info)">Info</span>
+      <h3>TLS configuration summary</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>tls.summary</code></span>
+      <span><b>Scanner</b> tls</span>
+    </div>
+    <pre class="evidence">protocols=TLSv1.0,TLSv1.1,TLSv1.2; preferred cipher=ECDHE-RSA-AES256-GCM-SHA384; subject=CN=legacy.internal; issuer=CN=legacy.internal; expires=2026-11-09</pre>
+    <p class="remediation"><strong>Remediation:</strong> No action required; informational.</p>
+  </article>
+  <article class="card finding" data-sev="Info" style="--sev: var(--sev-Info)">
+    <header>
+      <span class="badge" style="background:var(--sev-Info);color:var(--on-Info)">Info</span>
+      <h3>Not eligible for the HSTS preload list</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>transport.hsts.not-preload-eligible</code></span>
+      <span><b>Scanner</b> transport</span>
+    </div>
+    <pre class="evidence">max-age must be &gt;= 31536000 (1 year); missing includeSubDomains; missing preload directive; HTTP does not redirect to HTTPS on the same host</pre>
+    <p class="remediation"><strong>Remediation:</strong> Preloading protects first visits. Requirements: valid cert, HTTP-&gt;HTTPS redirect, HSTS max-age &gt;= 1 year with includeSubDomains and preload.</p>
+  </article>
+  <article class="card finding" data-sev="Info" style="--sev: var(--sev-Info)">
+    <header>
+      <span class="badge" style="background:var(--sev-Info);color:var(--on-Info)">Info</span>
+      <h3>robots.txt: 3 Disallow rule(s)</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>wellknown.robots.present</code></span>
+      <span><b>Scanner</b> wellknown</span>
+    </div>
+    <pre class="evidence">Disallow: /admin/, /backup/, /internal-api/; Sitemap: (none)</pre>
+    <p class="remediation"><strong>Remediation:</strong> Informational.</p>
+  </article>
+  <article class="card finding" data-sev="Info" style="--sev: var(--sev-Info)">
+    <header>
+      <span class="badge" style="background:var(--sev-Info);color:var(--on-Info)">Info</span>
+      <h3>No sitemap.xml</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>wellknown.sitemap.missing</code></span>
+      <span><b>Scanner</b> wellknown</span>
+    </div>
+    <pre class="evidence">https://127.0.0.1:57672/sitemap.xml</pre>
+    <p class="remediation"><strong>Remediation:</strong> Informational.</p>
+  </article>
+
+
+  <footer>
+    Generated by sitescan 0.1.0. Passive assessment only: no exploitation, brute force or fuzzing was performed.
+    Findings reflect responses observed at scan time and should be verified before remediation is prioritised.
+  </footer>
+</main>
+<script>
+(function () {
+  var chips = document.querySelectorAll(".chip[data-sev]");
+  chips.forEach(function (c) {
+    c.addEventListener("click", function () {
+      var on = c.getAttribute("aria-pressed") !== "true";
+      c.setAttribute("aria-pressed", on ? "true" : "false");
+      document.querySelectorAll('.finding[data-sev="' + c.dataset.sev + '"]').forEach(function (el) {
+        el.classList.toggle("hidden", !on);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sitescan report: {{ r.target.host }}</title>
+<style>
+:root {
+  --bg: #f7f7f4; --surface: #ffffff; --ink: #0b0b0b; --ink-2: #4a4a46; --ink-3: #75756f;
+  --line: #e1e0d9; --axis: #c3c2b7; --code-bg: #f1f0ea; --accent: #2a5db0;
+  --sev-Critical: #d03b3b; --sev-High: #ec835a; --sev-Medium: #fab219; --sev-Low: #7c95b8; --sev-Info: #b4b3ab;
+  --on-Critical: #fff; --on-High: #0b0b0b; --on-Medium: #0b0b0b; --on-Low: #0b0b0b; --on-Info: #0b0b0b;
+  --grade-good: #006300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121211; --surface: #1a1a19; --ink: #f2f2ee; --ink-2: #c4c4bd; --ink-3: #93938c;
+    --line: #2c2c2a; --axis: #383835; --code-bg: #232321; --accent: #7aa7ff;
+    --sev-Low: #8ea7c9; --sev-Info: #6c6b66; --on-Info: #f2f2ee; --grade-good: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121211; --surface: #1a1a19; --ink: #f2f2ee; --ink-2: #c4c4bd; --ink-3: #93938c;
+  --line: #2c2c2a; --axis: #383835; --code-bg: #232321; --accent: #7aa7ff;
+  --sev-Low: #8ea7c9; --sev-Info: #6c6b66; --on-Info: #f2f2ee; --grade-good: #0ca30c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+header.top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 17px; margin: 0 0 12px; }
+.muted { color: var(--ink-3); }
+.small { font-size: 13px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12.5px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+.grid { display: grid; gap: 16px; margin-top: 20px; grid-template-columns: 260px 1fr; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+/* hero */
+.hero { display: flex; flex-direction: column; justify-content: center; }
+.score { font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.score small { font-size: 18px; color: var(--ink-3); font-weight: 500; }
+.grade { display: inline-block; margin-top: 10px; font-size: 15px; font-weight: 700; padding: 2px 10px;
+  border-radius: 6px; border: 1.5px solid currentColor; }
+.grade-A, .grade-B { color: var(--grade-good); }
+.grade-C { color: var(--ink-2); }
+.grade-D, .grade-F { color: var(--sev-Critical); }
+
+/* severity bars (div-based, horizontal; label + count always in text ink) */
+.bars { display: grid; grid-template-columns: 72px 1fr 32px; gap: 8px 12px; align-items: center; }
+.bars .lbl { font-size: 13px; color: var(--ink-2); }
+.bars .val { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; }
+.track { height: 18px; border-left: 1px solid var(--axis); position: relative; }
+.bar { height: 100%; border-radius: 0 4px 4px 0; min-width: 0; transition: filter .12s; }
+.bar:hover { filter: brightness(1.08); }
+.bar.zero { width: 0 !important; }
+
+.summary-text p { margin: 0 0 10px; }
+ul.top { margin: 8px 0 0; padding-left: 0; list-style: none; }
+ul.top li { margin: 2px 0; }
+table.plain { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.plain td, table.plain th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.plain th { color: var(--ink-3); font-weight: 600; }
+table.plain td.n { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* filters */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 28px 0 12px; align-items: center; }
+.chip { cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.chip[aria-pressed="false"] { opacity: .45; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* finding cards */
+.finding { margin-bottom: 12px; border-left: 4px solid var(--sev, var(--line)); }
+.finding header { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.finding h3 { font-size: 15px; margin: 0; flex: 1 1 320px; }
+.badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 4px; white-space: nowrap; }
+.meta { display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 8px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.meta b { color: var(--ink-3); font-weight: 500; }
+pre.evidence { background: var(--code-bg); padding: 10px 12px; border-radius: 6px; white-space: pre-wrap;
+  word-break: break-word; margin: 10px 0; max-height: 260px; overflow: auto; }
+.remediation { margin: 0; color: var(--ink-2); font-size: 14px; }
+.hidden { display: none; }
+a { color: var(--accent); }
+footer { margin-top: 40px; font-size: 12px; color: var(--ink-3); }
+@media print { .filters { display: none; } .finding { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Security posture: {{ r.target.host }}</h1>
+    <span class="muted small">{{ r.started.strftime("%Y-%m-%d %H:%M UTC") }} · sitescan {{ version }}</span>
+  </header>
+  <p class="muted small" style="margin:4px 0 0">{{ r.target.url }} · {{ r.requests }} requests · {{ "%.1f"|format((r.finished - r.started).total_seconds()) }}s · passive, non-destructive assessment</p>
+
+  <section class="grid">
+    <div class="card hero" aria-label="Posture score">
+      <div class="muted small">Posture score</div>
+      <div class="score">{{ r.score }}<small>/100</small></div>
+      <div><span class="grade grade-{{ r.grade }}">Grade {{ r.grade }}</span></div>
+      <div class="muted small" style="margin-top:12px">{{ actionable }} actionable finding{{ "" if actionable == 1 else "s" }}, {{ counts[severities[-1]] }} informational</div>
+    </div>
+
+    <div class="card">
+      <h2>Severity breakdown</h2>
+      <div class="bars" role="table" aria-label="Findings by severity">
+        {% for s in severities %}
+        {% set n = counts[s] %}
+        <span class="lbl" role="rowheader">{{ s.value }}</span>
+        <div class="track" role="cell">
+          <div class="bar{{ ' zero' if n == 0 }}" title="{{ s.value }}: {{ n }} finding{{ '' if n == 1 else 's' }}"
+               style="width: {{ (n / max_count * 100)|round(1) }}%; background: var(--sev-{{ s.value }})"></div>
+        </div>
+        <span class="val" role="cell">{{ n }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="grid" style="grid-template-columns: 1fr 1fr">
+    <div class="card summary-text">
+      <h2>Executive summary</h2>
+      <p>
+        {% if r.has_high_or_critical %}
+        <strong>{{ r.target.host }}</strong> has <strong>{{ counts[severities[0]] }} critical</strong> and
+        <strong>{{ counts[severities[1]] }} high</strong> severity issues that should be fixed before anything else.
+        {% elif actionable %}
+        No critical or high severity issues were observed. {{ actionable }} lower-severity hardening item{{ "" if actionable == 1 else "s" }} remain.
+        {% else %}
+        No actionable issues were observed by the passive checks.
+        {% endif %}
+        The overall posture score is <strong>{{ r.score }}/100 (grade {{ r.grade }})</strong>.
+      </p>
+      {% if top %}
+      <div class="muted small">Top priorities</div>
+      <ul class="top">
+        {% for f in top %}<li><span class="dot" style="background:var(--sev-{{ f.severity.value }})"></span> {{ f.title }} <span class="muted small">({{ f.severity.value }})</span></li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h2>Findings by OWASP Top 10 (2021)</h2>
+      {% if owasp_rows %}
+      <table class="plain">
+        <tr><th>Category</th><th style="text-align:right">Findings</th></tr>
+        {% for name, n in owasp_rows %}<tr><td>{{ name }}</td><td class="n">{{ n }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="muted">No actionable findings mapped to OWASP categories.</p>{% endif %}
+    </div>
+  </section>
+
+  <div class="filters" role="group" aria-label="Filter findings by severity">
+    <strong style="margin-right:4px">Findings ({{ r.findings|length }})</strong>
+    {% for s in severities %}
+    <button class="chip" type="button" aria-pressed="true" data-sev="{{ s.value }}">
+      <span class="dot" style="background:var(--sev-{{ s.value }})"></span>{{ s.value }} · {{ counts[s] }}
+    </button>
+    {% endfor %}
+  </div>
+
+  {% for f in r.findings %}
+  <article class="card finding" data-sev="{{ f.severity.value }}" style="--sev: var(--sev-{{ f.severity.value }})">
+    <header>
+      <span class="badge" style="background:var(--sev-{{ f.severity.value }});color:var(--on-{{ f.severity.value }})">{{ f.severity.value }}</span>
+      <h3>{{ f.title }}</h3>
+    </header>
+    <div class="meta">
+      <span><b>ID</b> <code>{{ f.id }}</code></span>
+      <span><b>Scanner</b> {{ f.scanner }}</span>
+      {% if f.owasp %}<span><b>OWASP</b> {{ f.owasp_label }}</span>{% endif %}
+      {% if f.cwe %}<span><b>CWE</b> <a href="https://cwe.mitre.org/data/definitions/{{ f.cwe }}.html" rel="noopener noreferrer">{{ f.cwe_label }}</a></span>{% endif %}
+      {% if f.cvss %}<span><b>CVSS</b> <code>{{ f.cvss }}</code>{% set sc = f.cvss|cvss_score %}{% if sc is not none %} ({{ sc }}){% endif %}</span>{% endif %}
+    </div>
+    <pre class="evidence">{{ f.evidence }}</pre>
+    <p class="remediation"><strong>Remediation:</strong> {{ f.remediation }}</p>
+    {% if f.references %}
+    <p class="small" style="margin:8px 0 0">{% for ref in f.references %}<a href="{{ ref }}" rel="noopener noreferrer">{{ ref }}</a>{{ " · " if not loop.last }}{% endfor %}</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+
+  {% if r.runs|selectattr("status", "ne", "ok")|list or r.errors %}
+  <section class="card" style="margin-top:20px">
+    <h2>Scan diagnostics</h2>
+    <table class="plain">
+      <tr><th>Scanner</th><th>Status</th><th>Duration</th><th>Detail</th></tr>
+      {% for run in r.runs %}<tr><td>{{ run.name }}</td><td>{{ run.status }}</td><td>{{ run.duration }}s</td><td>{{ run.error or "" }}</td></tr>{% endfor %}
+    </table>
+    {% if r.errors %}<p class="muted small">{{ r.errors|length }} request(s) failed (timeouts / connection errors).</p>{% endif %}
+  </section>
+  {% endif %}
+
+  <footer>
+    Generated by sitescan {{ version }}. Passive assessment only: no exploitation, brute force or fuzzing was performed.
+    Findings reflect responses observed at scan time and should be verified before remediation is prioritised.
+  </footer>
+</main>
+<script>
+(function () {
+  var chips = document.querySelectorAll(".chip[data-sev]");
+  chips.forEach(function (c) {
+    c.addEventListener("click", function () {
+      var on = c.getAttribute("aria-pressed") !== "true";
+      c.setAttribute("aria-pressed", on ? "true" : "false");
+      document.querySelectorAll('.finding[data-sev="' + c.dataset.sev + '"]').forEach(function (el) {
+        el.classList.toggle("hidden", !on);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
