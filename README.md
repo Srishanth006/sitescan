@@ -40,6 +40,10 @@ pip install -e .          # optional: puts a `sitescan` command on PATH
 
 ## Usage
 
+> **Step-by-step manual commands** (install, practice site, scans, tests, troubleshooting):
+> see [docs/RUNNING.md](docs/RUNNING.md). How the tool works internally is in
+> [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
+
 ```bash
 sitescan https://staging.example.com --i-am-authorized
 # -> Type the target hostname (staging.example.com) to confirm you are authorized:
