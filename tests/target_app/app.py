@@ -14,6 +14,7 @@ import argparse
 from datetime import datetime, timedelta, timezone
 
 from flask import Flask, Response, abort, redirect, request
+from markupsafe import escape
 from werkzeug.serving import WSGIRequestHandler
 
 
@@ -35,6 +36,7 @@ VULN_HTML = """<!doctype html>
 <script src="/static/js/app.js"></script>
 <script src="http://cdn.legacy.test/analytics.js"></script>
 </head><body>
+<p><strong>Notice:</strong> intentionally misconfigured demo target for the sitescan project. Not a real service; do not enter real data.</p>
 <h1>Acme Legacy Portal</h1>
 <img src="http://cdn.legacy.test/logo.png" alt="logo">
 <iframe src="http://widgets.legacy.test/chat"></iframe>
@@ -95,6 +97,7 @@ def create_app(profile: str = "vulnerable", https_url: str | None = None) -> Fla
 
     @app.after_request
     def headers(resp: Response):
+        resp.headers["X-Robots-Tag"] = "noindex, nofollow"
         if vulnerable:
             resp.headers["Server"] = "Apache/2.4.29 (Ubuntu)"
             resp.headers["X-Powered-By"] = "PHP/7.2.3"
@@ -185,7 +188,7 @@ def create_app(profile: str = "vulnerable", https_url: str | None = None) -> Fla
     @app.errorhandler(404)
     def not_found(_e):
         if vulnerable:
-            return Response(VERBOSE_404.format(path=request.path), status=404, mimetype="text/html")
+            return Response(VERBOSE_404.format(path=escape(request.path)), status=404, mimetype="text/html")
         return Response("Not Found", status=404, mimetype="text/plain")
 
     return app

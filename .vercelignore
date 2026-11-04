@@ -1,0 +1,17 @@
+# Deploy only the practice site (api/ + tests/target_app/), not the scanner.
+.venv
+.git
+scans
+samples
+docs
+scripts
+sitescan
+sitescan.egg-info
+pyproject.toml
+pytest.ini
+*.pdf
+*.md
+tests/test_*.py
+tests/conftest.py
+tests/target_app/certs.py
+tests/target_app/osv_fixture.py

@@ -186,6 +186,30 @@ sitescan https://www.google.com --i-am-authorized
 
 ---
 
+## 7b. Live demo target on Vercel
+
+The same deliberately misconfigured practice site is hosted at:
+
+**https://sitescan-vulnerable-demo.vercel.app**
+
+```bash
+sitescan https://sitescan-vulnerable-demo.vercel.app --i-am-authorized --html report.html
+```
+
+Notes:
+
+- It holds no real data. The "exposed" files (`/.env`, `/backup.sql`, ...) only return a placeholder.
+- Vercel itself always serves HTTPS, redirects HTTP to HTTPS and sends HSTS, so the live scan shows
+  fewer transport/TLS findings than the local practice site.
+- Vercel's firewall may start answering repeated scans with a bot **challenge page**
+  (HTTP 403, header `X-Vercel-Mitigated: challenge`). While that happens sitescan is grading
+  Vercel's challenge page, not the demo app, so the result looks misleadingly clean. Wait for the
+  challenge to expire, or have the project owner add a firewall bypass rule for your IP.
+- To redeploy from this repo (owner only): `npx vercel login`, then `npx vercel deploy --prod`.
+  `api/index.py` and `vercel.json` hold the deployment setup.
+
+---
+
 ## 8. Generate the bundled sample report
 
 ```bash

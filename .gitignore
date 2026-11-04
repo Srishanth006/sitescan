@@ -7,3 +7,8 @@ scans/
 
 # third-party reference document (not part of this project)
 RuntimeX_Project_Report*.pdf
+
+.vercel
+
+# Vercel CLI local project link
+.vercel
